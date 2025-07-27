@@ -1,0 +1,9 @@
+body {
+    background-color: lightblue;
+    text-align: center;
+}
+
+#answer {
+    display: none;
+    color: white;
+}
