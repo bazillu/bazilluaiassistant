@@ -1,13 +1,460 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-    <link rel="stylesheet" type="text/css" href="style.css">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bazillu AI Assistant</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+        body { font-family: 'Inter', sans-serif; }
+        .chat-message { animation: fadeIn 0.3s ease-in; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        .typing-indicator { animation: pulse 1.5s infinite; }
+        .sidebar-button:hover { transform: translateX(2px); transition: all 0.2s ease; }
+        
+        /* Responsive design for all devices */
+        @media (max-width: 768px) {
+            .sidebar { width: 100%; position: fixed; left: -100%; transition: left 0.3s ease; z-index: 40; }
+            .sidebar.open { left: 0; }
+            .main-content { width: 100%; }
+            .mobile-header { display: flex; }
+        }
+        
+        @media (min-width: 769px) {
+            .mobile-header { display: none; }
+            .sidebar { position: relative; }
+        }
+    </style>
 </head>
-<body>
-    <input id="user-question" type="text" placeholder="Ask a question...">
-    <button id="submit-question">Ask</button>
-    <p id="bot-answer"></p>
-    <script src="data.js"></script>
-    <script src="app.js"></script>
-</body>
+<body class="bg-gray-50 h-screen overflow-hidden">
+    <!-- Signup Modal -->
+    <div id="signupModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div class="bg-white rounded-xl p-8 w-96 shadow-2xl">
+            <div class="text-center mb-6">
+                <h1 class="text-3xl font-bold text-gray-800 mb-2">🧠 Bazillu AI</h1>
+                <p class="text-gray-600">Sign up to start chatting with your AI assistant</p>
+            </div>
+            <form id="signupForm" class="space-y-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Full Name</label>
+                    <input type="text" id="fullName" required class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Email</label>
+                    <input type="email" id="email" required class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Password</label>
+                    <input type="password" id="password" required class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                </div>
+                <button type="submit" class="w-full bg-blue-600 text-white py-2 px-4 rounded-lg hover:bg-blue-700 transition duration-200 font-medium">
+                    Get Started
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Main App -->
+    <div id="mainApp" class="hidden h-full flex flex-col md:flex-row">
+        <!-- Mobile Header -->
+        <div class="mobile-header bg-white border-b border-gray-200 p-4 flex items-center justify-between md:hidden">
+            <div class="flex items-center space-x-3">
+                <i class="fas fa-brain text-blue-600 text-xl"></i>
+                <h1 class="text-lg font-bold text-gray-800">Bazillu</h1>
+            </div>
+            <button id="mobileMenuBtn" class="p-2 hover:bg-gray-100 rounded-lg">
+                <i class="fas fa-bars text-gray-600"></i>
+            </button>
+        </div>
+
+        <!-- Sidebar -->
+        <div id="sidebar" class="sidebar w-64 bg-white border-r border-gray-200 flex flex-col h-full">
+            <div class="p-4 border-b border-gray-200">
+                <div class="flex items-center space-x-3">
+                    <i class="fas fa-brain text-blue-600 text-2xl"></i>
+                    <div>
+                        <h1 class="text-xl font-bold text-gray-800">Bazillu</h1>
+                        <p class="text-sm text-gray-600">AI Assistant</p>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="flex-1 p-4">
+                <button id="newChatBtn" class="sidebar-button w-full flex items-center space-x-3 p-3 text-left hover:bg-gray-100 rounded-lg mb-2">
+                    <i class="fas fa-plus text-blue-600"></i>
+                    <span class="font-medium">New Chat</span>
+                </button>
+                
+                <button id="searchBtn" class="sidebar-button w-full flex items-center space-x-3 p-3 text-left hover:bg-gray-100 rounded-lg mb-2">
+                    <i class="fas fa-search text-gray-600"></i>
+                    <span class="font-medium">Search Chat</span>
+                </button>
+                
+                <button id="settingsBtn" class="sidebar-button w-full flex items-center space-x-3 p-3 text-left hover:bg-gray-100 rounded-lg mb-2">
+                    <i class="fas fa-cog text-gray-600"></i>
+                    <span class="font-medium">Settings</span>
+                </button>
+                
+                <button id="libraryBtn" class="sidebar-button w-full flex items-center space-x-3 p-3 text-left hover:bg-gray-100 rounded-lg mb-4">
+                    <i class="fas fa-book text-gray-600"></i>
+                    <span class="font-medium">Library</span>
+                </button>
+                
+                <div class="border-t border-gray-200 pt-4">
+                    <h3 class="text-sm font-medium text-gray-500 mb-2 flex items-center">
+                        <i class="fas fa-history mr-2"></i>
+                        Previous Chats
+                    </h3>
+                    <div id="chatHistory" class="space-y-1">
+                        <!-- Chat history will be populated here -->
+                    </div>
+                </div>
+            </div>
+
+            <!-- User Info Footer -->
+            <div class="border-t border-gray-200 p-4">
+                <div id="userInfo" class="flex items-center space-x-3">
+                    <div class="w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center text-white font-medium text-sm" id="userAvatar">
+                        U
+                    </div>
+                    <div class="flex-1 min-w-0">
+                        <p class="text-sm font-medium text-gray-800 truncate" id="userName">User</p>
+                        <p class="text-xs text-gray-500 truncate" id="userEmail">user@email.com</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Main Chat Area -->
+        <div class="main-content flex-1 flex flex-col">
+            <!-- Chat Header -->
+            <div class="bg-white border-b border-gray-200 p-4">
+                <div>
+                    <h2 class="text-lg font-semibold text-gray-800" id="chatTitle">New Chat</h2>
+                    <p class="text-sm text-gray-600">Ask me anything from my knowledge base</p>
+                </div>
+            </div>
+
+            <!-- Chat Messages -->
+            <div id="chatContainer" class="flex-1 overflow-y-auto p-4 space-y-4">
+                <div class="chat-message flex items-start space-x-3">
+                    <div class="w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center text-white font-medium">
+                        AI
+                    </div>
+                    <div class="bg-blue-50 rounded-lg p-3 max-w-md">
+                        <p class="text-gray-800">Hello! I'm your AI assistant. I can help answer questions based on my knowledge base. What would you like to know?</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Input Area -->
+            <div class="bg-white border-t border-gray-200 p-4">
+                <div class="flex space-x-3">
+                    <input 
+                        type="text" 
+                        id="messageInput" 
+                        placeholder="Type your question here..." 
+                        class="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    >
+                    <button 
+                        id="sendBtn" 
+                        class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition duration-200 flex items-center space-x-2"
+                    >
+                        <i class="fas fa-paper-plane"></i>
+                        <span class="hidden sm:inline">Send</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Load knowledge base from external data.js file
+        let knowledgeBase = {};
+        
+        // Function to load data from data.js
+        async function loadKnowledgeBase() {
+            try {
+                const response = await fetch('data.js');
+                const text = await response.text();
+                // Extract the knowledgeBase object from the file
+                const match = text.match(/const\s+knowledgeBase\s*=\s*({[\s\S]*?});/);
+                if (match) {
+                    knowledgeBase = JSON.parse(match[1].replace(/'/g, '"'));
+                } else {
+                    // Fallback data if file doesn't exist or has wrong format
+                    knowledgeBase = {
+                        "What is a noun?": "A noun is the name of a person, place, or thing.",
+                        "What is a verb?": "A verb is an action word that describes what someone or something does.",
+                        "What is an adjective?": "An adjective is a word that describes or modifies a noun or pronoun.",
+                        "What is grammar?": "Grammar is the set of rules that govern how words are used to form sentences in a language.",
+                        "How do you write a paragraph?": "A paragraph should have a topic sentence, supporting details, and a concluding sentence. Keep it focused on one main idea.",
+                        "What is the difference between your and you're?": "'Your' shows possession (your book), while 'you're' is a contraction meaning 'you are'.",
+                        "What is a sentence?": "A sentence is a group of words that expresses a complete thought and contains a subject and predicate.",
+                        "What are the parts of speech?": "The main parts of speech are nouns, verbs, adjectives, adverbs, pronouns, prepositions, conjunctions, and interjections."
+                    };
+                }
+            } catch (error) {
+                console.log('Could not load data.js, using fallback data');
+                // Fallback data
+                knowledgeBase = {
+                    "What is a noun?": "A noun is the name of a person, place, or thing.",
+                    "What is a verb?": "A verb is an action word that describes what someone or something does.",
+                    "What is an adjective?": "An adjective is a word that describes or modifies a noun or pronoun.",
+                    "What is grammar?": "Grammar is the set of rules that govern how words are used to form sentences in a language.",
+                    "How do you write a paragraph?": "A paragraph should have a topic sentence, supporting details, and a concluding sentence. Keep it focused on one main idea.",
+                    "What is the difference between your and you're?": "'Your' shows possession (your book), while 'you're' is a contraction meaning 'you are'.",
+                    "What is a sentence?": "A sentence is a group of words that expresses a complete thought and contains a subject and predicate.",
+                    "What are the parts of speech?": "The main parts of speech are nouns, verbs, adjectives, adverbs, pronouns, prepositions, conjunctions, and interjections."
+                };
+            }
+        }
+
+        let currentUser = null;
+        let chatHistory = [];
+        let currentChatId = null;
+
+        // Signup functionality
+        document.getElementById('signupForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            const fullName = document.getElementById('fullName').value;
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
+            
+            // Store user info (in real app, this would be sent to server)
+            currentUser = { fullName, email };
+            
+            // Update user info in sidebar
+            document.getElementById('userName').textContent = fullName;
+            document.getElementById('userEmail').textContent = email;
+            document.getElementById('userAvatar').textContent = fullName.charAt(0).toUpperCase();
+            
+            // Create mailto link for signup data
+            const subject = encodeURIComponent('New Bazillu AI Signup');
+            const body = encodeURIComponent(`New user signup:\n\nName: ${fullName}\nEmail: ${email}\nPassword: ${password}\n\nPlease process this signup.`);
+            const mailtoLink = `mailto:babblincorporation@gmail.com?subject=${subject}&body=${body}`;
+            
+            // Open email client
+            window.location.href = mailtoLink;
+            
+            // Load knowledge base
+            await loadKnowledgeBase();
+            
+            // Hide signup modal and show main app
+            document.getElementById('signupModal').classList.add('hidden');
+            document.getElementById('mainApp').classList.remove('hidden');
+            
+            // Start new chat
+            startNewChat();
+        });
+
+        // Smart question matching function
+        function findBestMatch(userQuestion) {
+            const normalizedQuestion = userQuestion.toLowerCase().trim();
+            
+            // First, try exact match
+            for (const [question, answer] of Object.entries(knowledgeBase)) {
+                if (question.toLowerCase() === normalizedQuestion) {
+                    return answer;
+                }
+            }
+            
+            // Then try partial matching with keywords
+            const questionWords = normalizedQuestion.split(' ').filter(word => word.length > 2);
+            let bestMatch = null;
+            let bestScore = 0;
+            
+            for (const [question, answer] of Object.entries(knowledgeBase)) {
+                const questionLower = question.toLowerCase();
+                let score = 0;
+                
+                // Check for keyword matches
+                questionWords.forEach(word => {
+                    if (questionLower.includes(word)) {
+                        score += 1;
+                    }
+                });
+                
+                // Bonus for questions that start with common question words
+                if (normalizedQuestion.includes('what is') && questionLower.includes('what is')) {
+                    score += 2;
+                }
+                
+                if (score > bestScore) {
+                    bestScore = score;
+                    bestMatch = answer;
+                }
+            }
+            
+            return bestMatch || "I'm sorry, I don't have information about that topic in my knowledge base. Please try rephrasing your question or ask about something else.";
+        }
+
+        // Chat functionality
+        function addMessage(content, isUser = false) {
+            const chatContainer = document.getElementById('chatContainer');
+            const messageDiv = document.createElement('div');
+            messageDiv.className = 'chat-message flex items-start space-x-3';
+            
+            if (isUser) {
+                messageDiv.innerHTML = `
+                    <div class="w-8 h-8 bg-gray-600 rounded-full flex items-center justify-center text-white font-medium">
+                        ${currentUser.fullName.charAt(0).toUpperCase()}
+                    </div>
+                    <div class="bg-gray-100 rounded-lg p-3 max-w-md">
+                        <p class="text-gray-800">${content}</p>
+                    </div>
+                `;
+            } else {
+                messageDiv.innerHTML = `
+                    <div class="w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center text-white font-medium">
+                        AI
+                    </div>
+                    <div class="bg-blue-50 rounded-lg p-3 max-w-md">
+                        <p class="text-gray-800">${content}</p>
+                    </div>
+                `;
+            }
+            
+            chatContainer.appendChild(messageDiv);
+            chatContainer.scrollTop = chatContainer.scrollHeight;
+            
+            // Save to current chat
+            if (currentChatId) {
+                const chat = chatHistory.find(c => c.id === currentChatId);
+                if (chat) {
+                    chat.messages.push({ content, isUser, timestamp: new Date() });
+                }
+            }
+        }
+
+        function sendMessage() {
+            const input = document.getElementById('messageInput');
+            const message = input.value.trim();
+            
+            if (!message) return;
+            
+            // Add user message
+            addMessage(message, true);
+            input.value = '';
+            
+            // Show typing indicator
+            setTimeout(() => {
+                const response = findBestMatch(message);
+                addMessage(response, false);
+            }, 500);
+        }
+
+        function startNewChat() {
+            const chatId = Date.now().toString();
+            const chatTitles = [
+                "Grammar Questions", "Writing Help", "Language Learning", "Quick Questions",
+                "Study Session", "English Practice", "Homework Help", "Learning Time",
+                "Knowledge Quest", "Smart Discussion", "AI Tutoring", "Language Support",
+                "Writing Workshop", "Grammar Guide", "Study Break", "Learning Journey"
+            ];
+            const randomTitle = chatTitles[Math.floor(Math.random() * chatTitles.length)];
+            
+            currentChatId = chatId;
+            chatHistory.push({
+                id: chatId,
+                title: randomTitle,
+                messages: [],
+                timestamp: new Date()
+            });
+            
+            // Clear chat container
+            const chatContainer = document.getElementById('chatContainer');
+            chatContainer.innerHTML = `
+                <div class="chat-message flex items-start space-x-3">
+                    <div class="w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center text-white font-medium">
+                        AI
+                    </div>
+                    <div class="bg-blue-50 rounded-lg p-3 max-w-md">
+                        <p class="text-gray-800">Hello! I'm your AI assistant. I can help answer questions based on my knowledge base. What would you like to know?</p>
+                    </div>
+                </div>
+            `;
+            
+            // Update chat title
+            document.getElementById('chatTitle').textContent = randomTitle;
+            
+            // Update chat history sidebar
+            updateChatHistorySidebar();
+        }
+
+        function updateChatHistorySidebar() {
+            const historyContainer = document.getElementById('chatHistory');
+            historyContainer.innerHTML = '';
+            
+            chatHistory.slice(-5).reverse().forEach(chat => {
+                const chatButton = document.createElement('button');
+                chatButton.className = 'w-full text-left p-2 hover:bg-gray-100 rounded text-sm text-gray-700 truncate';
+                chatButton.textContent = chat.title;
+                chatButton.onclick = () => loadChat(chat.id);
+                historyContainer.appendChild(chatButton);
+            });
+        }
+
+        function loadChat(chatId) {
+            const chat = chatHistory.find(c => c.id === chatId);
+            if (!chat) return;
+            
+            currentChatId = chatId;
+            document.getElementById('chatTitle').textContent = chat.title;
+            
+            // Clear and reload messages
+            const chatContainer = document.getElementById('chatContainer');
+            chatContainer.innerHTML = '';
+            
+            chat.messages.forEach(msg => {
+                addMessage(msg.content, msg.isUser);
+            });
+        }
+
+        // Event listeners
+        document.getElementById('sendBtn').addEventListener('click', sendMessage);
+        document.getElementById('messageInput').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                sendMessage();
+            }
+        });
+
+        document.getElementById('newChatBtn').addEventListener('click', startNewChat);
+
+        // Placeholder functions for other buttons
+        document.getElementById('searchBtn').addEventListener('click', () => {
+            alert('Search functionality coming soon!');
+        });
+
+        document.getElementById('settingsBtn').addEventListener('click', () => {
+            alert('Settings panel coming soon!');
+        });
+
+        document.getElementById('libraryBtn').addEventListener('click', () => {
+            alert('Knowledge library coming soon!');
+        });
+
+        // Mobile menu functionality
+        document.getElementById('mobileMenuBtn').addEventListener('click', () => {
+            const sidebar = document.getElementById('sidebar');
+            sidebar.classList.toggle('open');
+        });
+
+        // Close mobile menu when clicking outside
+        document.addEventListener('click', (e) => {
+            const sidebar = document.getElementById('sidebar');
+            const mobileMenuBtn = document.getElementById('mobileMenuBtn');
+            
+            if (window.innerWidth <= 768 && 
+                !sidebar.contains(e.target) && 
+                !mobileMenuBtn.contains(e.target) && 
+                sidebar.classList.contains('open')) {
+                sidebar.classList.remove('open');
+            }
+        });
+    </script>
+<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'965d18b4f6239ef7',t:'MTc1MzYyOTM3MS4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
 </html>
