@@ -3,7 +3,6 @@ body {
     text-align: center;
 }
 
-#answer {
-    display: none;
+#bot-answer {
     color: white;
 }
